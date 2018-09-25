@@ -11,7 +11,7 @@
     │
     ├─insurance_use_cases
     │      xxx.ipynb
-    │	     course.pdf
+    │      course.pdf
     │      
     └─deep_learning_intro
            dl_course.pdf
