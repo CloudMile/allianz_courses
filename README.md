@@ -1,4 +1,4 @@
-# CloudMile course materials for Allianz
+# CloudMile Course Materials for Allianz
 
 安聯課程資料, 建議依資料夾區分, e.g
   ```
