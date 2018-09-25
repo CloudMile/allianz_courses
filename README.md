@@ -9,7 +9,7 @@
     │      model
     │      course.pdf
     │
-    ├─recommendation
+    ├─insurance_use_cases
     │      xxx.ipynb
     │	     course.pdf
     │      
