@@ -1,5 +1,7 @@
 from matplotlib import pyplot as plt
 
+from keras.layers import Dense
+
 def plot_result(hist):
     plt.figure(figsize=(16, 5))
 
