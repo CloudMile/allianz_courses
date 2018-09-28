@@ -1,6 +1,8 @@
 from matplotlib import pyplot as plt
 
 from keras.layers import Dense
+from tensorflow.python.keras.utils.data_utils import get_file
+from seaborn import kdeplot
 
 def plot_result(hist):
     plt.figure(figsize=(16, 5))
