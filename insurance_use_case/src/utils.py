@@ -120,3 +120,4 @@ def variation_autoencoder(tr_x, vl_x):
     return encoder
     # vae.save_weights('vae_mlp.h5')
     # plot_ae(hist)
+
