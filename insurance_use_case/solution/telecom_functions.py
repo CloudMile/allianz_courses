@@ -1,6 +1,8 @@
 import numpy as np, pandas as pd
 from sklearn.preprocessing import StandardScaler
 
+from keras import metrics
+
 def do_binning(catg_ftrs, status, data, is_train):
     def quartile_binning(x):
         bins = np.percentile(x, range(0, 100, 25))[1:].tolist()
