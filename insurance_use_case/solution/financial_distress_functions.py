@@ -29,93 +29,141 @@ def do_binning(catg_ftrs, status, data, is_train):
     pass
 
 def do_onehot(catg_ftrs, catg_part, status, data, is_train):
-    # mapper = status['mapper']
-    # tmp = []
-    # for catg_col in catg_ftrs:
-    #     if is_train:
-    #         result = mapper[catg_col].fit_transform(data[catg_col])
-    #     else:
-    #         result = mapper[catg_col].transform(data[catg_col])
-    #
-    #     columns = [f'{catg_col}_{col}' for col in mapper[catg_col].classes_]
-    #     if result.shape[1] == 1:
-    #         columns = columns[:1]
-    #     tmp.append(pd.DataFrame(data=result, columns=columns))
-    # tmp = pd.concat(tmp, 1)
-    # for col in tmp:
-    #     catg_part[col] = tmp[col]
+    mapper = status['mapper']
+    tmp = []
+    for catg_col in catg_ftrs:
+        if is_train:
+            result = mapper[catg_col].fit_transform(data[catg_col])
+        else:
+            result = mapper[catg_col].transform(data[catg_col])
+
+        columns = [f'{catg_col}_{col}' for col in mapper[catg_col].classes_]
+        if result.shape[1] == 1:
+            columns = columns[:1]
+        tmp.append(pd.DataFrame(data=result, columns=columns))
+    tmp = pd.concat(tmp, 1)
+    for col in tmp:
+        catg_part[col] = tmp[col]
+    pass
+
+# def do_rfm(catg_ftrs, catg_part, status, data, is_train):
+#     if is_train:
+#         def rfm(pipe):
+#             ret = {}
+#             ret['rfm_all_freq'] = len(pipe.distress_num)
+#             ret['rfm_all_mean'] = pipe.distress_num.mean()
+#             ret['rfm_last3_freq'] = len(pipe.distress_num[-3:])
+#             ret['rfm_last3_mean'] = pipe.distress_num[-3:].mean()
+#             return ret
+#
+#         rfm_mapper = data.groupby('Company').apply(rfm)
+#         indices = rfm_mapper.index.values
+#         rfm_mapper = pd.DataFrame(data=list(rfm_mapper))
+#         rfm_mapper.insert(0, 'Company', indices)
+#         status['rfm_mapper'] = rfm_mapper.to_dict('records')
+#     else:
+#         rfm_mapper = status['rfm_mapper']
+#
+#     added_features = pd.DataFrame(data=rfm_mapper).set_index('Company').reindex(data.Company)
+#     catg_part['rfm_all_freq'] = added_features['rfm_all_freq'].values
+#     catg_part['rfm_all_mean'] = added_features['rfm_all_mean'].values
+#     catg_part['rfm_last3_freq'] = added_features['rfm_last3_freq'].values
+#     catg_part['rfm_last3_mean'] = added_features['rfm_last3_mean'].values
+#     pass
+
+def do_rfm(catg_ftrs, catg_part, status, data, is_train):
+    if is_train:
+        def rfm(pipe):
+            ret = pd.DataFrame()
+            ret['Company'] = pipe['Company']
+            ret['rfm_all_mean'] = pipe.distress_num.cumsum() / (np.arange(len(pipe)) + 1)
+            ret['rfm_rolling2_mean'] = pipe.distress_num.rolling(2).mean().fillna(0)
+            ret['rfm_rolling3_mean'] = pipe.distress_num.rolling(3).mean().fillna(0)
+            ret['rfm_rolling4_mean'] = pipe.distress_num.rolling(4).mean().fillna(0)
+            return ret
+
+        tmp = data.groupby('Company', group_keys=False).apply(rfm)
+        status['rfm_mapper'] = tmp.to_dict('records')
+    else:
+        rfm_mapper = status['rfm_mapper']
+        tmp = pd.DataFrame(data=rfm_mapper).set_index('Company').reindex(data.Company)
+
+    catg_part['rfm_all_mean'] = tmp['rfm_all_mean'].values
+    catg_part['rfm_rolling2_mean'] = tmp['rfm_rolling2_mean'].values
+    catg_part['rfm_rolling3_mean'] = tmp['rfm_rolling3_mean'].values
+    catg_part['rfm_rolling4_mean'] = tmp['rfm_rolling4_mean'].values
     pass
 
 
 def do_embedding(catg_ftrs, catg_part, status, data, is_train):
-    mapper = status['mapper']
-    for emb_col in catg_ftrs:
-        if is_train:
-            onehot = mapper[emb_col].fit_transform(data[emb_col])
-        else:
-            onehot = mapper[emb_col].transform(data[emb_col])
-
-        if onehot.shape[1] > 1:
-            catg_part[emb_col] = onehot.argmax(1)
-        else:
-            catg_part[emb_col] = onehot.ravel()
+    # mapper = status['mapper']
+    # for emb_col in catg_ftrs:
+    #     if is_train:
+    #         onehot = mapper[emb_col].fit_transform(data[emb_col])
+    #     else:
+    #         onehot = mapper[emb_col].transform(data[emb_col])
+    #
+    #     if onehot.shape[1] > 1:
+    #         catg_part[emb_col] = onehot.argmax(1)
+    #     else:
+    #         catg_part[emb_col] = onehot.ravel()
     pass
 
 def do_woe_encoding(catg_ftrs, catg_part, status, data, is_train):
 
-    # def woe_encode(x, label, data):
-    #     """Calculate the Weight of Evidence of given categorical feature and label
-    #
-    #     :param x: Given feature name
-    #     :param label: Label name
-    #     :param data:
-    #     :return: WOE encoded dictionary
-    #     """
-    #     total_vc = data[label].value_counts().sort_index()
-    #
-    #     def woe(pipe, total_vc):
-    #         # Count by label in this group
-    #         group_vc = pipe[label].value_counts().sort_index()
-    #
-    #         # Some class in the feature is missing, fill zero to missing class
-    #         if len(group_vc) < len(total_vc):
-    #             for key in total_vc.index:
-    #                 if key not in group_vc:
-    #                     group_vc[key] = 0.
-    #             group_vc = group_vc.sort_index()
-    #
-    #         # WOE formula
-    #         r = ((group_vc + 0.5) / total_vc).values
-    #
-    #         # Odd ratio => 1 to 0, you can define meaning of each class
-    #         return np.log(r[1] / r[0])
-    #
-    #     return data.groupby(x).apply(lambda pipe: woe(pipe, total_vc))
-    #
-    # for catg_col in catg_ftrs:
-    #     if is_train:
-    #         kv = woe_encode(catg_col, 'distress_catg', data)
-    #         status['woe_mapper'][catg_col] = kv.to_dict()
-    #     else:
-    #         kv = pd.Series(status['woe_mapper'][catg_col])
-    #     catg_part[f'woe_{catg_col}'] = kv.reindex(data[catg_col]).values
+    def woe_encode(x, label, data):
+        """Calculate the Weight of Evidence of given categorical feature and label
+
+        :param x: Given feature name
+        :param label: Label name
+        :param data:
+        :return: WOE encoded dictionary
+        """
+        total_vc = data[label].value_counts().sort_index()
+
+        def woe(pipe, total_vc):
+            # Count by label in this group
+            group_vc = pipe[label].value_counts().sort_index()
+
+            # Some class in the feature is missing, fill zero to missing class
+            if len(group_vc) < len(total_vc):
+                for key in total_vc.index:
+                    if key not in group_vc:
+                        group_vc[key] = 0.
+                group_vc = group_vc.sort_index()
+
+            # WOE formula
+            r = ((group_vc + 0.5) / total_vc).values
+
+            # Odd ratio => 1 to 0, you can define meaning of each class
+            return np.log(r[1] / r[0])
+
+        return data.groupby(x).apply(lambda pipe: woe(pipe, total_vc))
+
+    for catg_col in catg_ftrs:
+        if is_train:
+            kv = woe_encode(catg_col, 'distress_catg', data)
+            status['woe_mapper'][catg_col] = kv.to_dict()
+        else:
+            kv = pd.Series(status['woe_mapper'][catg_col])
+        catg_part[f'woe_{catg_col}'] = kv.reindex(data[catg_col]).values
     pass
 
 
 
 def do_target_encoding(catg_ftrs, catg_part, status, data, is_train):
-    # for catg_col in catg_ftrs:
-    #     if is_train:
-    #         freq_proportion = data[catg_col].value_counts() / len(data)
-    #         catg_part[f'freq_{catg_col}'] = freq_proportion.reindex(data[catg_col]).values
-    #         target_mean = data.groupby(catg_col).distress_catg.mean()
-    #         catg_part[f'mean_{catg_col}'] = target_mean.reindex(data[catg_col]).values
-    #
-    #         status['freq_mapper'][catg_col] = freq_proportion.to_dict()
-    #         status['mean_mapper'][catg_col] = target_mean.to_dict()
-    #     else:
-    #         catg_part[f'freq_{catg_col}'] = pd.Series(status['freq_mapper'][catg_col]).reindex(data[catg_col]).values
-    #         catg_part[f'mean_{catg_col}'] = pd.Series(status['mean_mapper'][catg_col]).reindex(data[catg_col]).values
+    for catg_col in catg_ftrs:
+        if is_train:
+            freq_proportion = data[catg_col].value_counts() / len(data)
+            catg_part[f'freq_{catg_col}'] = freq_proportion.reindex(data[catg_col]).values
+            target_mean = data.groupby(catg_col).distress_catg.mean()
+            catg_part[f'mean_{catg_col}'] = target_mean.reindex(data[catg_col]).values
+
+            status['freq_mapper'][catg_col] = freq_proportion.to_dict()
+            status['mean_mapper'][catg_col] = target_mean.to_dict()
+        else:
+            catg_part[f'freq_{catg_col}'] = pd.Series(status['freq_mapper'][catg_col]).reindex(data[catg_col]).values
+            catg_part[f'mean_{catg_col}'] = pd.Series(status['mean_mapper'][catg_col]).reindex(data[catg_col]).values
     pass
 
 
@@ -131,9 +179,9 @@ def do_norm(num_features, status, data, is_train):
     return num_part
 
 def do_nth_order_polynominal(num_features, data):
-    # for num_col in num_features:
-    #     data[f'{num_col}_degree_2'] = data[num_col] ** 2
-    #     data[f'{num_col}_degree_3'] = data[num_col] ** 3
+    for num_col in num_features:
+        data[f'{num_col}_degree_2'] = data[num_col] ** 2
+        data[f'{num_col}_degree_3'] = data[num_col] ** 3
 
     # for i, col_x in enumerate(num_features):
     #     for j, col_y in enumerate(num_features[i + 1:]):
@@ -204,3 +252,5 @@ def get_model(input_dim, catg_ftrs):
 #                  batch_size=100, epochs=30)
 # plot_result(hist)
 # draw_roc_curve(vl_y, model.predict(make_x(vl_x)))
+# 依照所有的閥值(切割100等分)算出F score, 找出分數最高的閥值
+
