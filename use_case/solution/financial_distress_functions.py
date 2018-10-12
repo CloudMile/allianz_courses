@@ -164,6 +164,8 @@ def do_target_encoding(catg_ftrs, catg_part, status, data, is_train):
 
 def do_norm(num_features, status, data, is_train):
     num_part = data[num_features].copy()
+    minmax = MinMaxScaler()
+    num_part = minmax.fit_transform(num_part)
     if is_train:
         scaler = StandardScaler()
         status['scaler'] = scaler
@@ -173,10 +175,11 @@ def do_norm(num_features, status, data, is_train):
         num_part = pd.DataFrame(data=scaler.transform(num_part), columns=num_part.columns)
     return num_part
 
+
 def do_nth_order_polynominal(num_features, data):
     # for num_col in num_features:
     #     data[f'{num_col}_degree_2'] = data[num_col] ** 2
-        # data[f'{num_col}_degree_3'] = data[num_col] ** 3
+    #     data[f'{num_col}_degree_3'] = data[num_col] ** 3
 
     # for i, col_x in enumerate(num_features):
     #     for j, col_y in enumerate(num_features[i + 1:]):
@@ -209,6 +212,21 @@ def get_model(input_dim, catg_ftrs):
     model.summary()
     model.compile(optimizer='adam', loss='mse')
     return model
+
+# # Split train valid
+# def split_fn(pipe):
+#     lens = len(pipe)
+#     ret = np.ones(lens)
+#     if lens >= 5:
+#         split_size = int(lens * 0.36)
+#         ret[-split_size:] = 0
+#     return ret
+
+# raw['distress_catg'] = (raw.distress_num <= -0.5).astype(int)
+# raw['is_train'] = np.concatenate(raw.groupby('Company').apply(split_fn).values)
+# raw_vl = raw.query("is_train == 0").drop('is_train', 1)
+# raw = raw.query("is_train == 1").drop('is_train', 1)
+# raw.head()
 
 # def get_embedding_model(input_dim):
 #     emb_unique_len = {
