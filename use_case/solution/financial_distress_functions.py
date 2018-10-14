@@ -28,7 +28,7 @@ def do_binning(catg_ftrs, status, data, is_train):
     #     catg_ftrs.append(binned_name)
     pass
 
-def do_onehot(catg_ftrs, catg_part, status, data, is_train):
+def do_onehot(catg_ftrs, encoded_ftrs, status, data, is_train):
     mapper = status['mapper']
     tmp = []
     for catg_col in catg_ftrs:
@@ -43,10 +43,11 @@ def do_onehot(catg_ftrs, catg_part, status, data, is_train):
         tmp.append(pd.DataFrame(data=result, columns=columns))
     tmp = pd.concat(tmp, 1)
     for col in tmp:
-        catg_part[col] = tmp[col]
+        encoded_ftrs[col] = tmp[col]
     pass
 
-def do_rfm(catg_ftrs, catg_part, status, data, is_train):
+
+def do_rfm(catg_ftrs, encoded_ftrs, status, data, is_train):
     if is_train:
         def rfm(pipe):
             # ret = {}
@@ -63,35 +64,11 @@ def do_rfm(catg_ftrs, catg_part, status, data, is_train):
         rfm_mapper = status['rfm_mapper']
         added_features = pd.DataFrame(data=rfm_mapper).set_index('Company').reindex(data.Company)
 
-    catg_part['rfm_all_freq'] = added_features['rfm_all_freq'].values
-    catg_part['rfm_all_mean'] = added_features['rfm_all_mean'].values
+    encoded_ftrs['rfm_all_freq'] = added_features['rfm_all_freq'].values
+    encoded_ftrs['rfm_all_mean'] = added_features['rfm_all_mean'].values
     pass
 
-# def do_rfm(catg_ftrs, catg_part, status, data, is_train):
-    # if is_train:
-    #     def rfm(pipe):
-    #         pipe['rfm_all_mean'] = pipe.distress_num.cumsum() / (np.arange(len(pipe)) + 1)
-    #         pipe['rfm_rolling2_mean'] = pipe.distress_num.rolling(2).mean().fillna(0)
-    #         pipe['rfm_rolling3_mean'] = pipe.distress_num.rolling(3).mean().fillna(0)
-    #         pipe['rfm_rolling4_mean'] = pipe.distress_num.rolling(4).mean().fillna(0)
-    #         return pipe[['Company', 'rfm_all_mean', 'rfm_rolling2_mean', 'rfm_rolling3_mean', 'rfm_rolling4_mean']]
-    #
-    #     tmp = data.groupby('Company').apply(rfm)
-    #     status['rfm_mapper'] = tmp.groupby('Company', as_index=False).last().to_dict('records')
-    # else:
-    #     rfm_mapper = status['rfm_mapper']
-    #     tmp = pd.DataFrame(data=rfm_mapper)
-    #     tmp['Company'] = tmp.Company.astype(int)
-    #     tmp = tmp.set_index('Company').reindex(data.Company.values)
-    #
-    # catg_part['rfm_all_mean'] = tmp['rfm_all_mean'].values
-    # catg_part['rfm_rolling2_mean'] = tmp['rfm_rolling2_mean'].values
-    # catg_part['rfm_rolling3_mean'] = tmp['rfm_rolling3_mean'].values
-    # catg_part['rfm_rolling4_mean'] = tmp['rfm_rolling4_mean'].values
-    # pass
-
-
-def do_embedding(catg_ftrs, catg_part, status, data, is_train):
+def do_embedding(catg_ftrs, encoded_ftrs, status, data, is_train):
     # mapper = status['mapper']
     # for emb_col in catg_ftrs:
     #     if is_train:
@@ -100,12 +77,12 @@ def do_embedding(catg_ftrs, catg_part, status, data, is_train):
     #         onehot = mapper[emb_col].transform(data[emb_col])
     #
     #     if onehot.shape[1] > 1:
-    #         catg_part[emb_col] = onehot.argmax(1)
+    #         encoded_ftrs[emb_col] = onehot.argmax(1)
     #     else:
-    #         catg_part[emb_col] = onehot.ravel()
+    #         encoded_ftrs[emb_col] = onehot.ravel()
     pass
 
-def do_woe_encoding(catg_ftrs, catg_part, status, data, is_train):
+def do_woe_encoding(catg_ftrs, encoded_ftrs, status, data, is_train):
     # def woe_encode(x, label, data):
     #     """Calculate the Weight of Evidence of given categorical feature and label
     #
@@ -141,31 +118,29 @@ def do_woe_encoding(catg_ftrs, catg_part, status, data, is_train):
     #         status['woe_mapper'][catg_col] = kv.to_dict()
     #     else:
     #         kv = pd.Series(status['woe_mapper'][catg_col])
-    #     catg_part[f'woe_{catg_col}'] = kv.reindex(data[catg_col]).values
+    #     encoded_ftrs[f'woe_{catg_col}'] = kv.reindex(data[catg_col]).values
     pass
 
 
 
-def do_target_encoding(catg_ftrs, catg_part, status, data, is_train):
+def do_target_encoding(catg_ftrs, encoded_ftrs, status, data, is_train):
     for catg_col in catg_ftrs:
         if is_train:
             freq_proportion = data[catg_col].value_counts() / len(data)
-            catg_part[f'freq_{catg_col}'] = freq_proportion.reindex(data[catg_col]).values
+            encoded_ftrs[f'freq_{catg_col}'] = freq_proportion.reindex(data[catg_col]).values
             target_mean = data.groupby(catg_col).distress_catg.mean()
-            catg_part[f'mean_{catg_col}'] = target_mean.reindex(data[catg_col]).values
+            encoded_ftrs[f'mean_{catg_col}'] = target_mean.reindex(data[catg_col]).values
 
             status['freq_mapper'][catg_col] = freq_proportion.to_dict()
             status['mean_mapper'][catg_col] = target_mean.to_dict()
         else:
-            catg_part[f'freq_{catg_col}'] = pd.Series(status['freq_mapper'][catg_col]).reindex(data[catg_col]).values
-            catg_part[f'mean_{catg_col}'] = pd.Series(status['mean_mapper'][catg_col]).reindex(data[catg_col]).values
+            encoded_ftrs[f'freq_{catg_col}'] = pd.Series(status['freq_mapper'][catg_col]).reindex(data[catg_col]).values
+            encoded_ftrs[f'mean_{catg_col}'] = pd.Series(status['mean_mapper'][catg_col]).reindex(data[catg_col]).values
     pass
 
 
-def do_norm(num_features, status, data, is_train):
+def do_norm(num_features, encoded_ftrs, status, data, is_train):
     num_part = data[num_features].copy()
-    minmax = MinMaxScaler()
-    num_part = minmax.fit_transform(num_part)
     if is_train:
         scaler = StandardScaler()
         status['scaler'] = scaler
@@ -173,17 +148,14 @@ def do_norm(num_features, status, data, is_train):
     else:
         scaler = status['scaler']
         num_part = pd.DataFrame(data=scaler.transform(num_part), columns=num_part.columns)
-    return num_part
 
+    for col in num_part:
+        encoded_ftrs[col] = num_part[col].values
 
 def do_nth_order_polynominal(num_features, data):
     # for num_col in num_features:
     #     data[f'{num_col}_degree_2'] = data[num_col] ** 2
     #     data[f'{num_col}_degree_3'] = data[num_col] ** 3
-
-    # for i, col_x in enumerate(num_features):
-    #     for j, col_y in enumerate(num_features[i + 1:]):
-    #         data[f'cross_{col_x}_x_{col_y}'] = data[col_x] * data[col_y]
     pass
 
 
