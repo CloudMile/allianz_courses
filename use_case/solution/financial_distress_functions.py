@@ -83,44 +83,74 @@ def do_embedding(catg_ftrs, encoded_ftrs, status, data, is_train):
     pass
 
 def do_woe_encoding(catg_ftrs, encoded_ftrs, status, data, is_train):
-    # def woe_encode(x, label, data):
-    #     """Calculate the Weight of Evidence of given categorical feature and label
+    def woe_encode(x, label, data):
+        """Calculate the Weight of Evidence of given categorical feature and label
+
+        :param x: Given feature name
+        :param label: Label name
+        :param data:
+        :return: WOE encoded dictionary
+        """
+        total_vc = data[label].value_counts().sort_index()
+
+        def woe(pipe, total_vc):
+            # Count by label in this group
+            group_vc = pipe[label].value_counts().sort_index()
+
+            # Some class in the feature is missing, fill zero to missing class
+            if len(group_vc) < len(total_vc):
+                for key in total_vc.index:
+                    if key not in group_vc:
+                        group_vc[key] = 0.
+                group_vc = group_vc.sort_index()
+
+            # WOE formula
+            r = ((group_vc + 0.5) / total_vc).values
+
+            # Odd ratio => 1 to 0, you can define meaning of each class
+            return np.log(r[1] / r[0])
+
+        return data.groupby(x).apply(lambda pipe: woe(pipe, total_vc))
+
+    for catg_col in catg_ftrs:
+        if is_train:
+            kv = woe_encode(catg_col, 'distress_catg', data)
+            status['woe_mapper'][catg_col] = kv.to_dict()
+        else:
+            kv = pd.Series(status['woe_mapper'][catg_col])
+        encoded_ftrs[f'woe_{catg_col}'] = kv.reindex(data[catg_col]).values
+    pass
+
+def do_entropy_encoding(catg_ftrs, encoded_ftrs, status, data, is_train):
+    # def entropy_encode(x, label, data):
+    #     """Calculate the entropy of given categorical feature and label
     #
     #     :param x: Given feature name
     #     :param label: Label name
     #     :param data:
     #     :return: WOE encoded dictionary
     #     """
-    #     total_vc = data[label].value_counts().sort_index()
-    #
-    #     def woe(pipe, total_vc):
+    #     def entropy(pipe):
     #         # Count by label in this group
-    #         group_vc = pipe[label].value_counts().sort_index()
+    #         group_vc = pipe[label].value_counts()
+    #         # Only one class in label, the entropy equal to zero
+    #         if len(group_vc) <= 1:
+    #             return 0
     #
-    #         # Some class in the feature is missing, fill zero to missing class
-    #         if len(group_vc) < len(total_vc):
-    #             for key in total_vc.index:
-    #                 if key not in group_vc:
-    #                     group_vc[key] = 0.
-    #             group_vc = group_vc.sort_index()
+    #         return -(group_vc / len(pipe)).map(lambda e: e * np.log(e)).sum()
     #
-    #         # WOE formula
-    #         r = ((group_vc + 0.5) / total_vc).values
-    #
-    #         # Odd ratio => 1 to 0, you can define meaning of each class
-    #         return np.log(r[1] / r[0])
-    #
-    #     return data.groupby(x).apply(lambda pipe: woe(pipe, total_vc))
+    #     class_proba = data.groupby(x).size() / len(data)
+    #     class_entropy = data.groupby(x).apply(entropy)
+    #     return class_proba.reindex(class_entropy.index).values * class_entropy
     #
     # for catg_col in catg_ftrs:
     #     if is_train:
-    #         kv = woe_encode(catg_col, 'distress_catg', data)
-    #         status['woe_mapper'][catg_col] = kv.to_dict()
+    #         kv = entropy_encode(catg_col, 'distress_catg', data)
+    #         status['entropy_mapper'][catg_col] = kv.to_dict()
     #     else:
-    #         kv = pd.Series(status['woe_mapper'][catg_col])
-    #     encoded_ftrs[f'woe_{catg_col}'] = kv.reindex(data[catg_col]).values
+    #         kv = pd.Series(status['entropy_mapper'][catg_col])
+    #     encoded_ftrs[f'entropy_{catg_col}'] = kv.reindex(data[catg_col]).values
     pass
-
 
 
 def do_target_encoding(catg_ftrs, encoded_ftrs, status, data, is_train):

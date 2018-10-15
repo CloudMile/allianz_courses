@@ -25,7 +25,7 @@ def do_binning(catg_ftrs, status, data, is_train):
         catg_ftrs.append(binned_name)
     pass
 
-def do_onehot(catg_ftrs, catg_part, status, data, is_train):
+def do_onehot(catg_ftrs, encoded_ftrs, status, data, is_train):
     mapper = status['mapper']
     tmp = []
     for catg_col in catg_ftrs:
@@ -40,11 +40,11 @@ def do_onehot(catg_ftrs, catg_part, status, data, is_train):
         tmp.append(pd.DataFrame(data=result, columns=columns))
     tmp = pd.concat(tmp, 1)
     for col in tmp:
-        catg_part[col] = tmp[col]
+        encoded_ftrs[col] = tmp[col]
     pass
 
 
-def do_embedding(catg_ftrs, catg_part, status, data, is_train):
+def do_embedding(catg_ftrs, encoded_ftrs, status, data, is_train):
     # mapper = status['mapper']
     # for emb_col in catg_ftrs:
     #     if is_train:
@@ -53,13 +53,13 @@ def do_embedding(catg_ftrs, catg_part, status, data, is_train):
     #         onehot = mapper[emb_col].transform(data[emb_col])
     #
     #     if onehot.shape[1] > 1:
-    #         catg_part[emb_col] = onehot.argmax(1)
+    #         encoded_ftrs[emb_col] = onehot.argmax(1)
     #     else:
-    #         catg_part[emb_col] = onehot.ravel()
-    # return catg_part
+    #         encoded_ftrs[emb_col] = onehot.ravel()
+    # return encoded_ftrs
     pass
 
-def do_woe_encoding(catg_ftrs, catg_part, status, data, is_train):
+def do_woe_encoding(catg_ftrs, encoded_ftrs, status, data, is_train):
 
     def woe_encode(x, label, data):
         """Calculate the Weight of Evidence of given categorical feature and label
@@ -96,24 +96,53 @@ def do_woe_encoding(catg_ftrs, catg_part, status, data, is_train):
             status['woe_mapper'][catg_col] = kv.to_dict()
         else:
             kv = pd.Series(status['woe_mapper'][catg_col])
-        catg_part[f'woe_{catg_col}'] = kv.reindex(data[catg_col]).values
+        encoded_ftrs[f'woe_{catg_col}'] = kv.reindex(data[catg_col]).values
     pass
 
+def do_entropy_encoding(catg_ftrs, encoded_ftrs, status, data, is_train):
+    # def entropy_encode(x, label, data):
+    #     """Calculate the entropy of given categorical feature and label
+    #
+    #     :param x: Given feature name
+    #     :param label: Label name
+    #     :param data:
+    #     :return: WOE encoded dictionary
+    #     """
+    #     def entropy(pipe):
+    #         # Count by label in this group
+    #         group_vc = pipe[label].value_counts()
+    #         # Only one class in label, the entropy equal to zero
+    #         if len(group_vc) <= 1:
+    #             return 0
+    #
+    #         return -(group_vc / len(pipe)).map(lambda e: e * np.log(e)).sum()
+    #
+    #     class_proba = data.groupby(x).size() / len(data)
+    #     class_entropy = data.groupby(x).apply(entropy)
+    #     return class_proba.reindex(class_entropy.index).values * class_entropy
+    #
+    # for catg_col in catg_ftrs:
+    #     if is_train:
+    #         kv = entropy_encode(catg_col, 'distress_catg', data)
+    #         status['entropy_mapper'][catg_col] = kv.to_dict()
+    #     else:
+    #         kv = pd.Series(status['entropy_mapper'][catg_col])
+    #     encoded_ftrs[f'entropy_{catg_col}'] = kv.reindex(data[catg_col]).values
+    pass
 
-
-def do_target_encoding(catg_ftrs, catg_part, status, data, is_train):
+def do_target_encoding(catg_ftrs, encoded_ftrs, status, data, is_train):
     for catg_col in catg_ftrs:
         if is_train:
             freq_proportion = data[catg_col].value_counts() / len(data)
-            catg_part[f'freq_{catg_col}'] = freq_proportion.reindex(data[catg_col]).values
+            encoded_ftrs[f'freq_{catg_col}'] = freq_proportion.reindex(data[catg_col]).values
             target_mean = data.groupby(catg_col).Exited.mean()
-            catg_part[f'mean_{catg_col}'] = target_mean.reindex(data[catg_col]).values
+            encoded_ftrs[f'mean_{catg_col}'] = target_mean.reindex(data[catg_col]).values
 
             status['freq_mapper'][catg_col] = freq_proportion.to_dict()
             status['mean_mapper'][catg_col] = target_mean.to_dict()
         else:
-            catg_part[f'freq_{catg_col}'] = pd.Series(status['freq_mapper'][catg_col]).reindex(data[catg_col]).values
-            catg_part[f'mean_{catg_col}'] = pd.Series(status['mean_mapper'][catg_col]).reindex(data[catg_col]).values
+            encoded_ftrs[f'freq_{catg_col}'] = pd.Series(status['freq_mapper'][catg_col]).reindex(data[catg_col]).values
+            encoded_ftrs[f'mean_{catg_col}'] = pd.Series(status['mean_mapper'][catg_col]).reindex(data[catg_col]).values
     pass
 
 
@@ -128,69 +157,9 @@ def do_norm(num_features, status, data, is_train):
         num_part = pd.DataFrame(data=scaler.transform(num_part), columns=num_part.columns)
     return num_part
 
+
 def do_nth_order_polynominal(num_features, data):
     for num_col in num_features:
         data[f'{num_col}_degree_2'] = data[num_col] ** 2
         data[f'{num_col}_degree_3'] = data[num_col] ** 3
     pass
-
-
-def get_embedding_model(input_dim):
-    emb_unique_len = {
-        'gender': 2,
-        'SeniorCitizen': 2,
-        'Partner': 2,
-        'Dependents': 2,
-        'OnlineSecurity': 3,
-        'OnlineBackup': 3,
-        'DeviceProtection': 3,
-        'TechSupport': 3,
-        'StreamingTV': 3,
-        'StreamingMovies': 3,
-        'PhoneService': 2,
-        'MultipleLines': 3,
-        'InternetService': 3,
-        'Contract': 3,
-        'PaperlessBilling': 2,
-        'PaymentMethod': 4,
-        'binn_tenure': 11,
-        'binn_MonthlyCharges': 11,
-        'binn_TotalCharges': 11,
-    }
-    inputs = Input(shape=(input_dim,))
-    # Flatten()( Embedding(emb_unique_len[col], 6, input_length=1)(  ) )
-    emb_inputs = [Input(shape=(1,)) for col in embedding_features]
-    all_inputs = [inputs] + emb_inputs
-
-    embeddings = [Flatten(name=name)(Embedding(emb_unique_len[name], 6, input_length=1)(emb))
-                  for name, emb in zip(embedding_features, emb_inputs)]
-
-    concat = Concatenate(axis=1)([inputs] + embeddings)
-    nets = Dense(units=32, activation='relu', kernel_regularizer=regularizers.l2(0.005))(concat)
-    # nets = Dropout(0.5)(nets)
-    nets = Dense(units=16, activation='relu', kernel_regularizer=regularizers.l2(0.005))(nets)
-    # nets = Dropout(0.3)(nets)
-    nets = Dense(units=16, activation='relu', kernel_regularizer=regularizers.l2(0.005))(nets)
-    # nets = Dropout(0.3)(nets)
-    nets = Dense(units=1, activation='sigmoid', kernel_regularizer=regularizers.l2(0.005))(nets)
-    model = Model(inputs=all_inputs, outputs=nets)
-    model.summary()
-    model.compile(optimizer='sgd', loss='binary_crossentropy', metrics=['accuracy'])
-    return model
-
-
-# K.clear_session()
-#
-# input_dim = len(set(tr_x.columns) - set(embedding_features))
-# model = get_embedding_model(input_dim)
-#
-#
-# def make_x(input_x):
-#     return [input_x.drop(embedding_features, 1)] + [input_x[col][:, None] for col in embedding_features]
-#
-#
-# hist = model.fit(make_x(tr_x), tr_y,
-#                  validation_data=(make_x(vl_x), vl_y),
-#                  batch_size=100, epochs=30)
-# plot_result(hist)
-# draw_roc_curve(vl_y, model.predict(make_x(vl_x)))
