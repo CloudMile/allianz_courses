@@ -3,7 +3,9 @@ from sklearn.preprocessing import StandardScaler
 
 from keras import metrics
 
+
 def do_binning(catg_ftrs, status, data, is_train):
+    # Quartile binning, outlier set to class "0"
     def quartile_binning(x):
         bins = np.percentile(x, range(0, 100, 25))[1:].tolist()
         iqr_x_150 = (bins[-1] - bins[0]) * 1.5
@@ -11,7 +13,17 @@ def do_binning(catg_ftrs, status, data, is_train):
         result = pd.Series(np.digitize(x, bins)).map(pd.Series([0, 1, 2, 3, 4, 0])).values
         return result, bins
 
-    for col in ('tenure', 'MonthlyCharges', 'TotalCharges'):
+    # Age
+    bins = np.array([14, 30, 35, 40, 45, 62])
+    labels = ['~14', '14-30', '30-35', '35-40', '40-45', '45-62', '62up']
+    age_map = pd.Series(labels)
+    data['binn_Age'] = pd.Series(np.digitize(data.Age, bins)).map(age_map).values
+    catg_ftrs.append('binn_Age')
+    # Balance
+    data['binn_Balance'] = data.Balance.map(lambda e: 0 if e == 0 else 1)
+    catg_ftrs.append('binn_Balance')
+
+    for col in ('CreditScore', 'Tenure', 'EstimatedSalary'):
         binned_name = f'binn_{col}'
         if is_train:
             result, bins = quartile_binning(data[col])
@@ -19,8 +31,8 @@ def do_binning(catg_ftrs, status, data, is_train):
             data[binned_name] = result
         else:
             bins = status['binn_mapper'][binned_name]
-            data[binned_name] = pd.Series(np.digitize(data[col], bins))\
-                                  .map(pd.Series([0, 1, 2, 3, 4, 0])).values
+            data[binned_name] = pd.Series(np.digitize(data[col], bins)) \
+                .map(pd.Series([0, 1, 2, 3, 4, 0])).values
 
         catg_ftrs.append(binned_name)
     pass

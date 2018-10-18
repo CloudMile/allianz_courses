@@ -269,3 +269,4 @@ def get_model(input_dim, catg_ftrs):
 # draw_roc_curve(vl_y, model.predict(make_x(vl_x)))
 # 依照所有的閥值(切割100等分)算出F score, 找出分數最高的閥值
 
+
