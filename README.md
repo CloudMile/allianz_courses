@@ -1,6 +1,4 @@
 # CloudMile Course Materials for Allianz
-
-安聯課程資料, 建議依資料夾區分, 自己的部分一個folder, e.g:
   ```
   └─allianz_courses
     │
